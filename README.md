@@ -47,9 +47,8 @@ It it recommended to use docker to run ollama. Check out [README.md](ollama/READ
 **Clone the repository:**
 
 ```bash
-git clone https://github.com/vcse59/GenerativeAI.git
-cd GenerativeAI
-git checkout mcp-client-server-e2e
+git clone https://github.com/vcse59/Generative-AI-MCP-Application.git
+cd Generative-AI-MCP-Application
 ```
 ### Native:
 
@@ -96,13 +95,13 @@ for /f "delims=" %i in ('git rev-parse --show-toplevel') do cd "%i"
     pip install poetry
     ```
 
-1. **Install dependencies for each component:**
+1. **Install dependencies for each component in separate terminal with active virtual environment :**
     ```bash
     cd chat-app
     npm install
-    cd ../mcp-client
+    cd mcp-client
     poetry install
-    cd ../mcp-client
+    cd mcp-server
     poetry install
 
 2. **Navigate to mcp-server project and start the MCP server in new terminal with active virtual envrionment:**
@@ -119,7 +118,7 @@ for /f "delims=" %i in ('git rev-parse --show-toplevel') do cd "%i"
     ### Environment variables are:
 
     ```bash
-    OLLAMA_LLM_MODEL_NAME=llama3.2 # Can be changed
+    OLLAMA_LLM_MODEL_NAME=llama3.2:latest # Can be changed
     MCP_SERVER_ENDPOINT=http://127.0.0.1:8080/mcp
     OLLAMA_API_URL=http://127.0.0.1:11434
     ```
@@ -158,7 +157,7 @@ The `docker-compose.yml` file defines services for `chat-app`, `mcp-client`, and
 ## Usage
 
 - Open the chat-app in your browser(http://localhost:5000).
-- Enter your message and interact with the AI.
+- Enter your message and interact with the AI. e.g, `Add 10 and 299 numbers`
 - The mcp-client and mcp-server handle message routing and AI generation.
 
 ## Security

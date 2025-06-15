@@ -44,6 +44,7 @@ async def is_model_downloaded() -> ModelStatus:
         response.raise_for_status()
         models = response.json().get("models", [])
 
+        print(f"Models found: {models}")
         if len(models) == 0:
             print("No models found in Ollama.")
             return ModelStatus.NOT_FOUND
@@ -58,7 +59,7 @@ async def is_model_downloaded() -> ModelStatus:
         return ModelStatus.ERROR
 
 # Function to Download Ollama Models
-def download_ollama_models():
+async def download_ollama_models():
     """Downloads necessary models using Ollama API."""
     try:
         print(f"🔄 Downloading Ollama model: {OLLAMA_LLM_MODEL_NAME}...")

@@ -18,6 +18,9 @@ const App = () => {
   };
 
   useEffect(() => {
+    let interval = null;
+    let currentInterval = 30000; // start with 30s
+
     const checkHealth = async () => {
       try {
         const res = await fetch(HEALTH_API_URL, { method: 'GET', headers: { "Content-Type": "application/json" } });
@@ -28,18 +31,39 @@ const App = () => {
           setIsInitialized(true);
           setHealthColor('green');
           setIsInitialized(true);
+          // If interval is not already 300s, update it
+          if (currentInterval !== 300000) {
+            clearInterval(interval);
+            currentInterval = 300000;
+            interval = setInterval(checkHealth, currentInterval);
+          }
         } else if (data.status === 'wait') {
           setHealthStatus('wait');
           setHealthColor('orange');
           setIsInitialized(false);
+          if (currentInterval !== 30000) {
+            clearInterval(interval);
+            currentInterval = 30000;
+            interval = setInterval(checkHealth, currentInterval);
+          }
         } else if(data.status === 'error') {
           setHealthStatus('error');
           setHealthColor('purple');
           setIsInitialized(false);
-        }else {
+          if (currentInterval !== 30000) {
+            clearInterval(interval);
+            currentInterval = 30000;
+            interval = setInterval(checkHealth, currentInterval);
+          }
+        } else {
           setHealthStatus('fail');
           setHealthColor('red');
           setIsInitialized(false);
+          if (currentInterval !== 30000) {
+            clearInterval(interval);
+            currentInterval = 30000;
+            interval = setInterval(checkHealth, currentInterval);
+          }
         }
         setHealthText(data.message);
       } catch (e) {
@@ -47,12 +71,17 @@ const App = () => {
         setHealthText('Backend service is not available');
         setHealthColor('red');
         setIsInitialized(false);
+        if (currentInterval !== 30000) {
+          clearInterval(interval);
+          currentInterval = 30000;
+          interval = setInterval(checkHealth, currentInterval);
+        }
       }
     };
 
     checkHealth();
-    // Optionally, poll every 30s:
-    const interval = setInterval(checkHealth, 30000);
+    interval = setInterval(checkHealth, currentInterval);
+
     return () => clearInterval(interval);
   }, []);
 

@@ -49,16 +49,14 @@ async def health_check():
         return {"status": "error", "message": str(e)}
 
 # Call the model download function on startup
-def run_download_ollama_models():
-    import asyncio
-    asyncio.run(download_ollama_models())
+async def run_download_ollama_models():
+    await download_ollama_models()
 
 @app.on_event("startup")
-def startup_event():
+async def startup_event():
     """
     Perform any startup tasks here.
     """
     print("MCP Client API is starting up...")
-    import threading
-    threading.Thread(target=run_download_ollama_models, daemon=True).start()
+    await run_download_ollama_models()
     print("Ollama models download started in background.")
