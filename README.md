@@ -1,4 +1,4 @@
-# GenerativeAI
+# Model Context Protocol E2E(End to End) Application
 
 This repository contains components for a generative AI project, including a chat application, client, and server.
 
