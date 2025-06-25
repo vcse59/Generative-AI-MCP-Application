@@ -21,6 +21,14 @@ This project demonstrates a generative AI system with a chat interface. It is di
 - **mcp-server**: The backend server handling AI generation.
 - **ollama**: The backend service handling ollama models.
 
+
+## Project Architecture
+
+![MCP (Model Context Protocol) Architecture](MCP_Architechture.png)
+
+The above diagram illustrates the interaction between the chat-app, mcp-client, mcp-server, and the Ollama service.
+
+
 ## Components
 
 ### [chat-app](chat-app)
