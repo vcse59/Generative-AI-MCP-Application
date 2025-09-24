@@ -65,6 +65,7 @@ module.exports = {
         static: {
             directory: path.join(__dirname, 'public'),
         },
-        port: 5000, // Port for dev server
+        port: 5000, // Port for dev server,
+        host: '0.0.0.0', // Allow access from any IP address
     },
 };

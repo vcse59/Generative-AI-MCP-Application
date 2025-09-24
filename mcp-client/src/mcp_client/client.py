@@ -5,6 +5,7 @@ import traceback
 import os
 
 import httpx
+import time
 #from dotenv import load_dotenv
 
 from mcp.client.streamable_http import streamablehttp_client
@@ -18,7 +19,8 @@ from enum import Enum, auto
 # load_dotenv()
 
 # Access .env variables if needed
-OLLAMA_LLM_MODEL_NAME = os.environ.get("OLLAMA_LLM_MODEL_NAME") # Default model name, can be overridden by setting shell variable
+OLLAMA_LLM_MODEL_NAME = os.environ.get("OLLAMA_LLM_MODEL_NAME", "llama3.2") # Default model name, can be overridden by setting shell variable
+OLLAMA_NLU_MODEL_NAME = os.environ.get("OLLAMA_NLU_MODEL_NAME", "llama3.2")  # Default NLU model name, can be overridden by setting shell variable
 
 # MCP Server Endpoint
 MCP_SERVER_ENDPOINT = os.environ.get("MCP_SERVER_ENDPOINT")  # MCP server endpoint, can be overridden by setting shell variable
@@ -31,49 +33,91 @@ class ModelStatus(Enum):
     NOT_FOUND = auto()
     ERROR = auto()
 
-async def is_model_downloaded() -> ModelStatus:
+def is_model_downloaded() -> ModelStatus:
     """
-    Checks if the specified Ollama model is downloaded locally.
+    Checks synchronously if the specified Ollama models are downloaded locally.
 
     Returns:
         ModelStatus: Enum indicating the model status.
     """
+    if not OLLAMA_API_URL:
+        print("OLLAMA_API_URL is not configured.")
+        return ModelStatus.ERROR
+
     try:
-        print(f"🔄 Checking Ollama model: {OLLAMA_LLM_MODEL_NAME}...")
-        response = requests.get(f"{OLLAMA_API_URL}/api/tags")
-        response.raise_for_status()
-        models = response.json().get("models", [])
+        print(f"🔄 Checking Ollama models: {OLLAMA_LLM_MODEL_NAME} and {OLLAMA_NLU_MODEL_NAME}...")
+        model_list = [OLLAMA_LLM_MODEL_NAME, OLLAMA_NLU_MODEL_NAME]
+
+        resp = requests.get(f"{OLLAMA_API_URL}/api/tags", timeout=10)
+        resp.raise_for_status()
+        models = resp.json().get("models", [])
 
         print(f"Models found: {models}")
-        if len(models) == 0:
+        if not models:
             print("No models found in Ollama.")
             return ModelStatus.NOT_FOUND
 
-        if any(model["name"] == OLLAMA_LLM_MODEL_NAME for model in models):
-            return ModelStatus.DOWNLOADED
-        else:
-            return ModelStatus.NOT_FOUND
+        for model_name in model_list:
+            print(f"Checking model: {model_name}")
+            if any(m.get("name") == model_name for m in models):
+                print(f"Model {model_name} is downloaded.")
+            else:
+                print(f"Model {model_name} is not found.")
+                return ModelStatus.NOT_FOUND
 
+        print("All specified models are downloaded.")
+        return ModelStatus.DOWNLOADED
     except requests.exceptions.RequestException as e:
         print(f"Error checking model availability: {e}")
         return ModelStatus.ERROR
 
-# Function to Download Ollama Models
-async def download_ollama_models():
-    """Downloads necessary models using Ollama API."""
-    try:
-        print(f"🔄 Downloading Ollama model: {OLLAMA_LLM_MODEL_NAME}...")
-        model_names = [OLLAMA_LLM_MODEL_NAME]  # List of models
-        for model_name in model_names:
-            response = httpx.post(f"{OLLAMA_API_URL}/api/pull", json={"model": model_name})
+# Function to Download Ollama Models (synchronous / blocking)
+def download_ollama_models():
+    """Downloads necessary models using Ollama API (blocking, uses requests).
 
-            if response.status_code == 200:
-                print(f"Model {model_name} downloaded successfully.")
-            else:
-                print(f"Failed to download model {model_name}: {response.text}")
+    Returns:
+        dict: mapping model_name -> status string ("downloaded", "failed", "error")
+    """
+    if not OLLAMA_API_URL:
+        print("OLLAMA_API_URL is not configured. Cannot download models.")
+        return {OLLAMA_LLM_MODEL_NAME: "error", OLLAMA_NLU_MODEL_NAME: "error"}
+
+    model_names = [OLLAMA_LLM_MODEL_NAME, OLLAMA_NLU_MODEL_NAME]
+    results = {}
+
+    # Add retries with exponential backoff for robustness
+    max_attempts = 3
+    base_delay = 1.0  # seconds
+    try:
+        for model_name in model_names:
+            attempt = 0
+            success = False
+            while attempt < max_attempts and not success:
+                attempt += 1
+                try:
+                    print(f"🔄 Downloading Ollama model (blocking) attempt {attempt}/{max_attempts}: {model_name}...")
+                    resp = requests.post(f"{OLLAMA_API_URL}/api/pull", json={"model": model_name}, timeout=60)
+                    if resp.status_code in (200, 202):
+                        print(f"Model {model_name} download request accepted.")
+                        results[model_name] = "downloaded"
+                        success = True
+                    else:
+                        print(f"Failed to download model {model_name}: {resp.status_code} - {resp.text}")
+                        # mark as failed for now; may retry
+                        results[model_name] = f"failed: {resp.status_code}"
+                except requests.RequestException as e:
+                    print(f"Error downloading model {model_name} on attempt {attempt}: {e}")
+                    results[model_name] = "error"
+
+                if not success and attempt < max_attempts:
+                    delay = base_delay * (2 ** (attempt - 1))
+                    print(f"Retrying {model_name} in {delay} seconds...")
+                    time.sleep(delay)
     except Exception as e:
-        print(f"Error downloading models: {e}")
+        print(f"Unexpected error while downloading models: {e}")
         raise
+
+    return results
 
 def build_system_prompt(tools: List[list], user_prompt: str) -> str:
     """
@@ -145,7 +189,7 @@ User Query: {user_prompt}
 Regenerate the user prompt to be more specific and clear, focusing on the intent of the user.
 Respond ONLY in string format, no JSON or extra text.
 """
-    output_response = await call_ollama(prompt=prompt, model=OLLAMA_LLM_MODEL_NAME)
+    output_response = await call_ollama(prompt=prompt, model=OLLAMA_NLU_MODEL_NAME)
     if isinstance(output_response, dict):
         output_response = output_response.get("response", "")
     
@@ -166,7 +210,7 @@ async def call_ollama(prompt: str, model="llama3.2") -> dict:
         raw_output = response.json().get("response", "")
 
         # Remove Markdown-style code block
-        cleaned = re.sub(r'^```json\n|```$|\\\"', '', raw_output.strip(), flags=re.MULTILINE)
+        cleaned = re.sub(r'```json\n|```|\\\"|<think>|</think>', '', raw_output.strip(), flags=re.MULTILINE)
 
         # Remove "quotes at the start and end if they exist
         if cleaned.startswith('"') and cleaned.endswith('"'):
@@ -231,6 +275,8 @@ async def run(available_tools: list, user_query: str):
             # Generate system prompt for LLM
             system_prompt = build_system_prompt(mcp_tools, user_input)
 
+            print(f"System Prompt:\n{system_prompt}\n")
+
             # Call Ollama model
             tool_call = await call_ollama(prompt=system_prompt, model=OLLAMA_LLM_MODEL_NAME)
             tool_call = json.loads(tool_call)
@@ -265,7 +311,7 @@ async def run(available_tools: list, user_query: str):
 
                 # Generate a response from the LLM based on the tool call output
                 generative_prompt = await build_generative_response_prompt(result, user_query)
-                result = await call_ollama(prompt=generative_prompt, model=OLLAMA_LLM_MODEL_NAME)
+                result = await call_ollama(prompt=generative_prompt, model=OLLAMA_NLU_MODEL_NAME)
                 result = result.strip('"')  # Remove quotes if they exist
                 print(f"\n🔄 Final Result : {result}")
                 return result

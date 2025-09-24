@@ -1,12 +1,11 @@
 from mcp.server.fastmcp import FastMCP
 
 # Main asynchronous function to start the MCP server
-async def serve():
+def serve():
 
     # Initialize the FastMCP server with configuration
     server_mcp = FastMCP(
         "This is the MCP Server with basic arithmetic tools",
-        version="1.0.0",
         host="0.0.0.0",
         port=8080,
         stateless_http=True,
@@ -39,5 +38,5 @@ async def serve():
             raise ValueError("Cannot divide by zero")
         return a / b
 
-    # Start the server with streamable HTTP support
-    await server_mcp.run_streamable_http_async()
+    # Start the server asynchronously
+    server_mcp.run(transport="streamable-http")

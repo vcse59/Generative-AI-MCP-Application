@@ -4,8 +4,27 @@ from .model import MCPClientModelRequest, MCPClientModelResponse
 
 from .client import handle_input, download_ollama_models, is_model_downloaded
 from .client import ModelStatus
+import asyncio
+from contextlib import asynccontextmanager
 
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan handler: runs once on startup and shutdown.
+
+    We run the blocking model download in a thread to avoid blocking the
+    event loop, matching previous behavior from the @app.on_event startup
+    handler.
+    """
+    print("MCP Client API is starting up...")
+    # Start the blocking downloader in a background task (fire-and-forget)
+    # so the app becomes responsive immediately.
+    asyncio.create_task(asyncio.to_thread(download_ollama_models))
+    print("Ollama models download started in background (async task).")
+    yield
+    # Optional shutdown actions
+    print("MCP Client API is shutting down...")
+
+app = FastAPI(lifespan=lifespan)
 
 # CORS Middleware
 app.add_middleware(
@@ -36,7 +55,9 @@ async def health_check():
     """
 
     try:
-        status = await is_model_downloaded()
+        # is_model_downloaded is synchronous; run it in a thread to avoid
+        # blocking the event loop
+        status = await asyncio.to_thread(is_model_downloaded)
         if status == ModelStatus.DOWNLOADED:
             return {"status": "healthy", "message": "Services are up and ready to serve."}
         elif status == ModelStatus.NOT_FOUND:
@@ -48,15 +69,4 @@ async def health_check():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
-# Call the model download function on startup
-async def run_download_ollama_models():
-    await download_ollama_models()
-
-@app.on_event("startup")
-async def startup_event():
-    """
-    Perform any startup tasks here.
-    """
-    print("MCP Client API is starting up...")
-    await run_download_ollama_models()
-    print("Ollama models download started in background.")
+# (Startup handled by lifespan handler above)

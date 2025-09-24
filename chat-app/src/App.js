@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
     marginTop: '2rem',
     justifyContent: 'flex-start',
     alignItems: 'center',
-    backgroundColor: '#1492c1',
+    backgroundColor: '#909da1',
   },
   chatWindow: {
     position: 'fixed',
