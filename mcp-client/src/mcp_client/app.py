@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from .model import MCPClientModelRequest, MCPClientModelResponse
 
@@ -45,6 +45,10 @@ async def process_data(data : MCPClientModelRequest) -> MCPClientModelResponse:
     Process the input data and return a response.
     """
     response_message = await handle_input(data.user_query)
+    if response_message is None:
+        raise HTTPException(status_code=502, detail="No response from MCP client.")
+    if not isinstance(response_message, str):
+        response_message = str(response_message)
     return MCPClientModelResponse(response=response_message)
 
 @app.get("/health")

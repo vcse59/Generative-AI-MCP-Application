@@ -8,7 +8,7 @@ authors = [
     {name = "Vivek Yadav",email = "v.cse59@gmail.com"}
 ]
 dependencies = [
-    "mcp>=1.14.0"
+    "mcp>=1.26.0"
 ]
 
 [tool.poetry.scripts]
